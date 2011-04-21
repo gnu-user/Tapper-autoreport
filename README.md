@@ -20,7 +20,7 @@ Protocol).
 
 * script:
 
-```shell
+```bash
 #! /bin/bash
 # your own stuff here ...
 . /tapper-autoreport
@@ -41,7 +41,7 @@ Protocol).
 
 * script:
 
-```shell
+```bash
 #! /bin/bash
 append_tap "ok - affe loewe tiger"
 append_tap "ok - some other description"
@@ -84,7 +84,7 @@ uname -a | grep -q Linux  # example for exit code
 
 * cmd line and output:
 
-```shell
+```bash
 $ prove ./trivial-example-1.sh
 ./trivial-example-1.sh .. ok
 All tests successful.
@@ -103,7 +103,7 @@ Result: PASS
 
 * cmd line and output:
 
-```shell
+```bash
 $ ./trivial-example-1.sh
 # http://perlformance.net/tapper/reports/id/1
 # - upload ./trivial-example-1.sh ...
@@ -154,7 +154,7 @@ $ ./trivial-example-1.sh
 
 Import utility functions at the beginning of the script via
 
-```shell
+```bash
 . ./tapper-autoreport --import-utils
 ```
 
