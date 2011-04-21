@@ -20,9 +20,11 @@ Protocol).
 
 * script:
 
-        #! /bin/bash
-        # your own stuff here ...
-        . /data/bancroft/autoreport/tapper-autoreport
+```shell
+#! /bin/bash
+# your own stuff here ...
+. /tapper-autoreport
+```
 
 * explanation:
 
@@ -39,24 +41,26 @@ Protocol).
 
 * script:
 
-        #! /bin/bash
-        append_tap "ok - affe loewe tiger"
-        append_tap "ok - some other description"
-        append_tap "not ok - yet another test description"
-        append_tapdata "timecpb: 12.345"
-        append_tapdata "timenocpb: 23.456"
-        SUITENAME="CPUID-ON"
-        SUITEVERSION="2.007"
-        OSNAME="Gentoo 10.1"
-        CHANGESET="98765"
-        HOSTNAME="J-F-Sebastian"
-        TICKETURL='https://osrc.amd.com/bugs/show_bug.cgi?id=901'
-        WIKIURL=https://osrc.amd.com/wiki/Pharaoh_hound_c-state_boost_evaluation
-        PLANNINGID=osrc.hv.xen.multicore
-        TAPPER_REPORT_SERVER="tapper-devel"
-        NOSEND=1
-        uname -a | grep -q Linux  # example for exit code
-        . /data/bancroft/autoreport/tapper-autoreport nok /tmp/results.log $?
+```shell
+#! /bin/bash
+append_tap "ok - affe loewe tiger"
+append_tap "ok - some other description"
+append_tap "not ok - yet another test description"
+append_tapdata "timecpb: 12.345"
+append_tapdata "timenocpb: 23.456"
+SUITENAME="CPUID-ON"
+SUITEVERSION="2.007"
+OSNAME="Gentoo 10.1"
+CHANGESET="98765"
+HOSTNAME="J-F-Sebastian"
+TICKETURL='https://osrc.amd.com/bugs/show_bug.cgi?id=901'
+WIKIURL=https://osrc.amd.com/wiki/Pharaoh_hound_c-state_boost_evaluation
+PLANNINGID=osrc.hv.xen.multicore
+TAPPER_REPORT_SERVER="tapper-devel"
+NOSEND=1
+uname -a | grep -q Linux  # example for exit code
+. /tapper-autoreport nok /tmp/results.log $?
+```
 
 * explanation:
 
@@ -80,11 +84,13 @@ Protocol).
 
 * cmd line and output:
 
-        $ prove ./trivial-example-1.sh
-        ./trivial-example-1.sh .. ok
-        All tests successful.
-        Files=1, Tests=5, 20 wallclock secs
-        Result: PASS
+```shell
+$ prove ./trivial-example-1.sh
+./trivial-example-1.sh .. ok
+All tests successful.
+Files=1, Tests=5, 20 wallclock secs
+Result: PASS
+```
 
 * explanation:
 
@@ -97,13 +103,15 @@ Protocol).
 
 * cmd line and output:
 
-        $ ./trivial-example-1.sh
-        # http://tapper.amd.com/tapper/reports/id/129218
-        # - upload ./trivial-example-1.sh ...
-        # - upload /boot/config-2.6.32-22-generic ...
-        # - upload /proc/cpuinfo ...
-        # - upload /proc/devices ...
-        # - upload /proc/version ...
+```shell
+$ ./trivial-example-1.sh
+# http://perlformance.net/tapper/reports/id/1
+# - upload ./trivial-example-1.sh ...
+# - upload /boot/config-2.6.32-22-generic ...
+# - upload /proc/cpuinfo ...
+# - upload /proc/devices ...
+# - upload /proc/version ...
+```
 
 * explanation:
 
@@ -146,7 +154,9 @@ Protocol).
 
 Import utility functions at the beginning of the script via
 
-    . ./tapper-autoreport --import-utils
+```shell
+. ./tapper-autoreport --import-utils
+```
 
 Then you have the following functions available
 
