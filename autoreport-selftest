@@ -1,0 +1,73 @@
+#! /bin/bash
+
+###################################################################
+#
+# This script selftests many features of tapper-autotest in several
+# different ways. That's interesting but maybe not the best starter
+# for learning.
+#
+# For easier examples look into
+#
+#  - trivial-example-1.sh
+#  - trivial-example-2.sh
+#  - cpb-disable-naive.sh
+#
+###################################################################
+
+. ./tapper-autoreport --import-utils
+
+TAP[0]="ok - autoreport selftest"
+TAP[1]="ok - some other description"
+append_tap "ok - the simplest of all tests"
+
+HEADERS[0]="# Tapper-Xen-Version: 4.0.1"
+HEADERS[1]="# Tapper-Xen-Changeset: 19876"
+HEADERS[2]="# Tapper-Xen-Base-OS-description: opensuse 11.3-rc3"
+
+OUTPUT[0]="I am misc output"
+OUTPUT[1]="I am put near the end"
+OUTPUT[2]="Care for me or I disappear"
+
+TAPDATA[0]="timecpb: 12"
+TAPDATA[1]="timenocpb: 15"
+TAPDATA[2]="ratio: 0.8"
+TAPDATA[3]="vendor: $(get_vendor)"
+TAPDATA[4]="cpu_family: $(get_cpu_family)"
+append_tapdata "number_of_tap_reports: $(get_tap_counter)"
+
+main_after_hook ()
+{
+    valuex=17
+    echo "# I am comment."
+    echo "# Do NOT use me for TAP ok/notok lines."
+    echo "I am the Earth Star... run at the end of main()."
+}
+
+TICKETURL='https://rt.cpan.org/Ticket/Display.html?id=67058'
+WIKIURL=https://github.com/amd/Tapper/wiki
+PLANNINGID=some.task.hierarchy.tapper.tapper3
+
+REPORTGROUP=selftest-`date +%Y-%m-%d | md5sum | cut -d" " -f1`
+NOSEND=1
+NOUPLOAD=1
+
+
+uname -a | grep -q Linux  # example for ok   exit code
+ok $? "we are on linux"
+
+uname -a | grep -q A_very_unknown_system_that_should_never_exist
+result=$?
+ok $result "not on unknown system # TODO"
+negate_ok $result "still not on unknown system"
+
+# test get_hex_from_int
+result=1; [ 'f' = $(get_hex_from_int 15) ] && result=0
+ok $result "get_hex_from_int test"
+
+# test lower_case
+result=1; [ 'xxx' = $(lower_case 'XXX') ] && result=0
+ok $result "lower_case test"
+
+
+. ./tapper-autoreport
+

@@ -1,0 +1,554 @@
+#! /bin/bash
+
+# gets vendor "AMD" or "Intel" from /proc/cpuinfo
+get_vendor () {
+    vendor=$(echo $(grep vendor_id /proc/cpuinfo |head -1|cut -d: -f2|sed -e "s/Genuine\|Authentic//"))
+    echo $vendor
+}
+
+# checks for vendor "Intel" in /proc/cpuinfo
+vendor_intel () {
+    grep -Eq 'vendor_id.*:.*Intel' /proc/cpuinfo
+}
+
+# checks for vendor "AMD" in /proc/cpuinfo
+vendor_amd () {
+    grep -Eq 'vendor_id.*:.*AMD' /proc/cpuinfo
+}
+
+# outputs cpu family from /proc/cpuinfo
+get_cpu_family () {
+    fam=$(echo $(grep family /proc/cpuinfo |head -1|cut -d: -f2))
+    echo $fam
+}
+
+# checks cpu family from /proc/cpuinfo against a minimum family
+cpu_family_min () {
+    min=${1:-0}
+    fam=$(get_cpu_family)
+    [ $(($fam)) -ge $(($min)) ]
+}
+
+# checks cpu family from /proc/cpuinfo against a maximum family
+cpu_family_max () {
+    max=${1:-0x999}
+    fam=$(get_cpu_family)
+    [ $(($fam)) -le $(($max)) ]
+}
+
+# stops testscript if not matching required cpu family from
+# /proc/cpuinfo of a minimum/maximum range
+require_amd_family_range () {
+    min="${1:-0}"
+    max="${2:-$min}"
+    if vendor_amd && cpu_family_min "$min" && cpu_family_max "$max" ;
+    then
+        return 0
+    else
+        vendor=$(get_vendor);
+        fam=$(get_cpu_family);
+        echo "1..0 # skip Family $vendor/$fam does not match AMD/$min..$max"
+        exit 0 # Yes, exit.
+    fi
+}
+
+# check sysfs whether cpu has L3 cache
+has_l3cache () {
+    if [ -d /sys/devices/system/cpu/cpu0/cache/index3 ] ; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# stops testscript if cpu does not have L3 cache
+require_l3cache () {
+    if has_l3cache ; then
+        return 0
+    else
+        echo "1..0 # skip No L3 cache"
+        exit 0 # Yes, exit.
+    fi
+}
+
+# checks for a feature flag in /proc/cpuinfo
+has_cpufeature () {
+    feature="${1:-UNKNOWNFEATURE}"
+    if cat /proc/cpuinfo | grep -E '^flags\W*:' | head -1 | grep -q "\<${feature}\>" 2>&1 ; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# stops testscript if a feature flag is not found in /proc/cpuinfo
+require_cpufeature () {
+    feature="${1:-UNKNOWNFEATURE}"
+    if has_cpufeature "$feature" ; then
+        return 0
+    else
+        echo "1..0 # skip Missing cpufeature $feature"
+        exit 0 # Yes, exit.
+    fi
+}
+
+# checks whether the cpbdisable file exists in sysfs
+has_cpbdisable () {
+    # This file's existence is not the best check.
+    # It also exists on non-cpb systems.
+    if [ -e /sys/devices/system/cpu/cpu0/cpufreq/cpb ] ; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# stops testscript if the cpbdisable file does not exist in sysfs
+require_cpbdisable () {
+    if has_cpbdisable ; then
+        return 0
+    else
+        echo "1..0 # skip No CPB disable"
+        exit 0 # Yes, exit.
+    fi
+}
+
+# checks whether the program is available
+has_program () {
+    program="${1:-UNKNOWNPROGRAM}"
+    if which "$program" > /dev/null 2>&1 ; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# stops testscript if program not available
+require_program () {
+    program="${1:-UNKNOWNPROGRAM}"
+    if has_program "$program" ; then
+        return 0
+    else
+        echo "1..0 # skip Missing program $program"
+        exit 0 # Yes, exit.
+    fi
+}
+
+require_root () {
+    ID=$(id|cut -d" " -f1|cut -d= -f2|cut -d\( -f1)
+    if [ "x$ID" == "x0" ] ; then
+        return 0
+    else
+        echo "1..0 # skip Need to run as root"
+        exit 0 # Yes, exit.
+    fi
+}
+
+# ==================== TAP utils ====================
+
+get_tap_counter () {
+     echo ${#TAP[@]}
+}
+
+get_tapdata_counter () {
+     echo ${#TAPDATA[@]}
+}
+
+append_tap () {
+    tap_report="${1:-'not ok - unknown TAP line in utility function append_tap'}"
+    TAP=( "${TAP[@]}" "$1" )
+}
+
+append_tapdata () {
+    tap_report="${1:-'not ok - unknown TAP line in utility function append_tapdata'}"
+    TAPDATA=( "${TAPDATA[@]}" "$1" )
+}
+
+ok () {
+    success="${1:-0}"
+    msg="${2:-unknown}"
+    if [ "$success" != "0" ] ; then
+        NOT="not "
+    else
+        NOT=""
+    fi
+    append_tap "${NOT}ok - $msg"
+}
+
+negate_ok () {
+    success="${1:-0}"
+    msg="${2:-unknown}"
+    if [ "$success" == "0" ] ; then
+        NOT="not "
+    else
+        NOT=""
+    fi
+    append_tap "${NOT}ok - $msg"
+}
+
+get_hex_from_int() { # returns lower case
+    echo $(echo "obase=16; $1" | bc| tr '[A-Z]' '[a-z]')
+}
+
+lower_case () {
+    string="${1:-}"
+    echo $(echo "$string" | tr '[A-Z]' '[a-z]')
+}
+
+get_random_number () {
+    range_max="${1:-}"
+    number=$RANDOM
+    let "number %= $range_max"
+    echo "$number"
+}
+
+get_kernel_release_3 () {
+    number=$(uname -r |sed 's/2\.6\.\([0-9]\+\).*/\1/')
+    echo "$number"
+}
+
+kernel_release_min () {
+    # check if current LK 3rd level release number is greater or equal release_req
+    release_req="${1:-}"
+    [ "$release_req" -ne $(echo $release_req|sed 's/^\([0-9]\+\).*/\1/') ] && return 1
+    [ $(get_kernel_release_3) -ge "$release_req" ] && return 0
+    return 1
+}
+
+require_kernel_release_min () {
+    # exit 0 if current LK release is less than required 3rd level version number
+    release_req="${1:-}"
+    if kernel_release_min "$release_req"; then
+        return 0
+    else
+        echo "1..0 # skip Linux Kernel must be newer than 2.6.$LK_MIN"
+        exit 0
+    fi
+}
+
+is_element_in_list () {
+    # check if element is in list
+    element="${1:-unknown}"
+    list="${2:-unknown}"
+    echo "$list"|egrep -q "\b$element\b"
+    result=$?
+    return $result
+}
+
+# ===== kernel details ==================
+
+kernelrelease=`uname -r`
+
+# ===== suite name ==================
+
+SUITEKEYWORDS=$(for k in $KEYWORDS ; do echo $k ; done | sort | paste -sd-)
+myname=$(echo $(basename $0 | sed -e 's/\.\w*$//i')${SUITEKEYWORDS:+-$SUITEKEYWORDS} | sed -e "s/^tapper-//" | sed -e "s/^artemis-//" )
+
+SUITE=${myname:-autoreport}
+VERSION=3.001
+
+# ===== other meta info ==================
+
+suite_name=${SUITENAME:-$(echo $SUITE)}
+suite_version=${SUITEVERSION:-$VERSION}
+hostname=${HOSTNAME:-$(hostname)}
+reportername=${REPORTERNAME:-$USER}
+
+osname=${OSNAME:-$(cat /etc/issue.net | head -1)}
+changeset=${CHANGESET:-$(cat /proc/version | head -1)}
+kernelflags=$(cat /proc/cmdline)
+uname=$(uname -a)
+ram=$(free -m | grep -i mem: | awk '{print $2}'MB)
+starttime_test_program=$(date --rfc-2822)
+bogomips=$(echo $(cat /proc/cpuinfo | grep -i bogomips | head -1 | cut -d: -f2))
+cpuinfo=$(
+    cpu=`grep 'model name' < /proc/cpuinfo | cut -d: -f2- | head -1 | sed -e "s/^ *//"`;
+    cpucount=`grep 'model name' < /proc/cpuinfo | wc -l`;
+    echo "$cpucount cores [$cpu]";
+)
+# TODO: bogomips from /proc/cpuinfo
+
+ticketurl=${TICKETURL:-""}
+wikiurl=${WIKIURL:-""}
+planningid=${PLANNINGID:-""}
+
+# group reports with similar environment:
+# - hostname
+# - date
+# - uname
+# - cpuinfo
+# - kernel config
+reportgroup_testrun=${TAPPER_TESTRUN:-${ARTEMIS_TESTRUN:-}}
+reportgroup=${REPORTGROUP:-$((echo $HOSTNAME ; date +%Y-%m-%d ; uname -a ; cat /boot/config-`uname -r` ; cat /proc/cpuinfo | grep -v MHz | grep -vi bogomips ; cat $(ls -1 $BOOTCONFIG $PROCCONFIG 2> /dev/null | sort) ) | md5sum | cut -d" " -f1 )}
+
+if [ ! "$reportgroup_testrun" ] ; then
+    reportgroup_arbitrary=${TAPPER_REPORT_GROUP:-$reportgroup}
+fi
+
+tapper_suite_meta() {
+    echo "# Tapper-suite-name:               $suite_name";
+    echo "# Tapper-suite-version:            $suite_version";
+    echo "# Tapper-machine-name:             $hostname";
+    echo "# Tapper-reportername:             $reportername";
+
+    if [ -n "$reportgroup_arbitrary" ] ; then
+        echo "# Tapper-reportgroup-arbitrary:    $reportgroup_arbitrary";
+    fi
+    if [ -n "$reportgroup_testrun" ] ; then
+        echo "# Tapper-reportgroup-testrun:      $reportgroup_testrun";
+    fi
+    if [ -n "$ticketurl" ] ; then
+        echo "# Tapper-ticket-url:               $ticketurl";
+    fi
+    if [ -n "$wikiurl" ] ; then
+        echo "# Tapper-wiki-url:                 $wikiurl";
+    fi
+    if [ -n "$planningid" ] ; then
+        echo "# Tapper-planning-id:              $planningid";
+    fi
+}
+
+tapper_section_meta() {
+    if [ ! "x1" = "x$DONTREPEATMETA" ] ; then
+        echo "# Tapper-uname:                    $uname"
+        echo "# Tapper-osname:                   $osname"
+        echo "# Tapper-kernel:                   $kernelrelease"
+        echo "# Tapper-changeset:                $changeset"
+        echo "# Tapper-flags:                    $kernelflags"
+        echo "# Tapper-cpuinfo:                  $cpuinfo"
+        echo "# Tapper-ram:                      $ram"
+        echo "# Tapper-starttime-test-program:   $starttime_test_program"
+    fi
+
+    if [ -n "$SECTION" ] ; then
+        echo "# Tapper-section:              $SECTION"
+    fi
+}
+
+# =====================================================
+
+# up to here functions are sourced by test scripts
+
+[ "$1" == "--import-utils" ] && return 0
+
+# ===== param evaluation ==============================
+
+if [ x"$HARNESS_ACTIVE" == x"1" ] ; then
+    NOSEND=1
+fi
+
+EXITCODE=0
+OK=1
+FILECOUNT=0
+
+# do not implicitely upload files like kernel config
+NOUPLOAD=0
+
+REPORTERNAME=
+
+# extend that list with usernames that should magically be recognized
+# as test owner when listing them as argument
+KNOWNUSERS="root tapper"
+
+KNOWNUSERS_REGEX=$(for k in $KNOWNUSERS ; do echo $k ; done | sort | paste -sd- | sed -e 's/-/\\|/g')
+
+for i in $(seq 1 $#) ; do
+    a=${!i}
+    # echo "<${a}>"
+    if echo "$a" | grep -Eq '^-?[0-9]+$' ; then
+        if [ "$a" != "0" ] ; then
+            EXITCODE=$a
+        fi
+    elif [ x"$a" == x"nok" ] ; then
+        OK=0
+    elif [ "x$a" == x"--version" ] ; then
+        PRINTVERSION=1
+    elif [ -e "$a" ] ; then
+        FILES[$FILECOUNT]="$a"
+        let FILECOUNT=FILECOUNT+1
+    elif echo "$a" | grep -qi "^\\($KNOWNUSERS_REGEX\\)\$" ; then
+        REPORTERNAME="$a"
+    fi
+done
+
+# ===== kernel config files ==================
+
+BOOTCONFIG="/boot/config-$kernelrelease"
+PROCCONFIG="/proc/config.gz"
+
+if [ ! "$NOUPLOAD" ] ; then
+    if [ ! "x1" = "x$DONTREPEATMETA" ] ; then
+        if [ -e "$BOOTCONFIG" ] ; then
+            FILES[$FILECOUNT]="$BOOTCONFIG"
+            let FILECOUNT=FILECOUNT+1
+        fi
+        if [ -e "$PROCCONFIG" ] ; then
+            FILES[$FILECOUNT]="$PROCCONFIG"
+            let FILECOUNT=FILECOUNT+1
+        fi
+    fi
+fi
+
+# ===== upload ourself ===============
+
+if [ ! "x1" = "x$DONTREPEATMETA" ] ; then
+    FILES[$FILECOUNT]="$0";            let FILECOUNT=FILECOUNT+1
+fi
+
+# ===== /proc files ==================
+
+if [ ! "x1" = "x$DONTREPEATMETA" ] ; then
+    FILES[$FILECOUNT]="/proc/cpuinfo"; let FILECOUNT=FILECOUNT+1
+    FILES[$FILECOUNT]="/proc/devices"; let FILECOUNT=FILECOUNT+1
+    FILES[$FILECOUNT]="/proc/version"; let FILECOUNT=FILECOUNT+1
+fi
+
+# ===== utility functions ==================
+
+TAPPER_REPORT_SERVER=${TAPPER_REPORT_SERVER:-${ARTEMIS_REPORT_SERVER:-tapper.amd.com}}
+TAPPER_REPORT_PORT=${TAPPER_REPORT_PORT:-${ARTEMIS_REPORT_PORT:-7357}}
+TAPPER_API_PORT=${TAPPER_API_PORT:-${ARTEMIS_API_PORT:-7358}}
+
+prepare_plan() {
+    # count of our own tests
+    COUNT=${#TAP[@]}
+    PLAN=$(($MYPLAN + $COUNT))
+}
+
+upload_files() {
+    MYNETCAT="$NETCAT $TAPPER_REPORT_SERVER $TAPPER_API_PORT"
+    # echo "# Uploading:  $MYNETCAT ..." 1>&2
+    for f in $(seq 0 $(($FILECOUNT - 1))) ; do
+        file="${FILES[f]}"
+        filetype=""
+        if echo $file | grep -Eq '\.(gz|bz2)$' ; then
+            filetype="application/octet-stream"
+        fi
+        echo -n "# - upload $file" 1>&2
+        if [ "$filetype" ] ; then
+            echo -n " ($filetype)" 1>&2
+        fi
+        echo " ..." 1>&2
+        ( 
+            echo "#! upload $reportid $file $filetype"
+            cat $file
+        ) | $MYNETCAT
+    done
+}
+
+# ===== main =========================================
+
+autoreport_main() {
+
+    # ==================== prepare plan
+
+    # count of tests until "END of own tests"
+    MYPLAN=4
+    prepare_plan
+    echo "1..$PLAN"
+
+    # ==================== meta info ====================
+    tapper_suite_meta
+    tapper_section_meta
+
+    # =============== own headers (later entries win) ===============
+    HEADERSCOUNT=${#HEADERS[@]}
+    for l in $(seq 0 $(($HEADERSCOUNT - 1))) ; do
+        echo ${HEADERS[l]}
+    done
+
+    # ,==================== BEGIN of own tests ====================
+    # |
+    #
+    echo "ok - autoreport"
+
+    # optionally provided exit code
+    if [ x"$EXITCODE" != x"0" ] ; then echo -n "not " ; fi
+    echo "ok - exitcode"
+    if [ -n "$EXITCODE" ] ; then
+        echo "  ---"
+        echo "  exitcode: $EXITCODE"
+        echo "  ..."
+    fi
+
+    # optionally provided "not ok"
+    if [ x"$OK" = x"0" ] ; then echo -n "not " ; fi
+    echo "ok - success"
+    #
+    # |
+    # `==================== END of own tests ====================
+
+    # ==================== remaining TAP ====================
+    for l in $(seq 0 $(($COUNT - 1))) ; do
+        echo ${TAP[l]}
+    done
+
+    # ==================== additional TAP/YAML data ====================
+    echo "ok - tapdata"
+    echo "  ---"
+    echo "  tapdata: 1"
+    TAPDATACOUNT=${#TAPDATA[@]}
+    if [ "$TAPDATACOUNT" -gt 0 ] ; then
+        for l in $(seq 0 $(($TAPDATACOUNT - 1))) ; do
+            echo "  ${TAPDATA[l]}"
+        done
+    fi
+    echo "  ..."
+
+    # ==================== remaining output ====================
+    OUTPUTCOUNT=${#OUTPUT[@]}
+    for l in $(seq 0 $(($OUTPUTCOUNT - 1))) ; do
+        echo ${OUTPUT[l]}
+    done
+
+    # ==================== files ====================
+    for f in $(seq 0 $(($FILECOUNT - 1))) ; do
+        echo "# File upload: '${FILES[f]}'"
+    done
+
+    if set | grep -q '^main_after_hook \(\)' ; then
+        main_after_hook
+    fi
+}
+
+# ===== main =========================================
+
+if [ "$PRINTVERSION" ] ; then
+    echo "$VERSION"
+    exit 0
+fi
+
+if [ ! "x1" = "x$NOSEND" ] ; then
+    NETCAT=`which netcat || which nc`
+    # does it provide -q option
+    if $NETCAT -h 2>&1 |grep -q -- '-q.*quit' ; then
+        NETCAT="$NETCAT -q7"
+    fi
+    NETCAT="$NETCAT -w7"
+else
+    NETCAT=cat
+fi
+
+#echo "# NETCAT: $NETCAT"
+if [ -n "$TAPPER_REPORT_SERVER" ] ; then
+    if [ ! "x1" = "x$NOSEND" ] ; then
+        MYNETCAT="$NETCAT $TAPPER_REPORT_SERVER $TAPPER_REPORT_PORT"
+        # echo    "# Reporting:  $MYNETCAT ..." 1>&2
+        output=$( (autoreport_main | $MYNETCAT ; if [ "x1" = "x$NOSEND" ] ; then echo $NOSEND ; fi ) | tail -1 )
+        reportid=$(echo $output | sed -e 's/^.*::Reports::Receiver. Protocol is TAP. Your report id: //')
+        if [ ! "x1" = "x$NOSEND" ] ; then
+            echo -n "# http://$TAPPER_REPORT_SERVER" 1>&2
+            if echo $TAPPER_REPORT_SERVER | grep -q "bascha" ; then
+                echo -n ":3000"
+            fi
+            if echo $TAPPER_REPORT_SERVER | grep -q "artemis" ; then
+                echo "/artemis/reports/id/$reportid" 1>&2
+            else
+                echo "/tapper/reports/id/$reportid" 1>&2
+            fi
+            upload_files
+        fi
+    else
+        autoreport_main
+    fi
+fi
