@@ -1,5 +1,29 @@
 #! /bin/bash
 
+# ====================================================================
+#
+# tapper-autoreport
+# -----------------
+#
+# This is the "tapper-autoreport" bash utility -- a bash include file
+# that you include ("source") at the end of your own bash script.
+#
+# It then magically turns your bash script into a Tapper test suite.
+#
+# It collects meta information from system, reports test results via
+# network and uploads files.
+#
+# It also allows your bash script to be used with the "prove" command,
+# a tool to run test scripts that produce TAP output (Test Anything
+# Protocol).
+#
+# It is licensed under a 2-clause BSD license. See the LICENSE file.
+#
+# ====================================================================
+
+
+# ==================== Utility functions =============================
+
 # gets vendor "AMD" or "Intel" from /proc/cpuinfo
 get_vendor () {
     vendor=$(echo $(grep vendor_id /proc/cpuinfo |head -1|cut -d: -f2|sed -e "s/Genuine\|Authentic//"))

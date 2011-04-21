@@ -2,16 +2,16 @@
 
 ## ABOUT
 
-`tapper-autoreport` is a bash include that you can add ("source") at
-the end of your own bash script.
+This is the `tapper-autoreport` bash utility -- a bash include file
+that you include ("source") at the end of your own bash script.
 
-It then magically turns your bash script into an Tapper test suite.
+It then magically turns your bash script into a Tapper test suite.
 
 It collects meta information from system, reports test results via
 network and uploads files.
 
-It also allows your bash script to be used with the `prove` command, a
-tool to run test scripts that produce TAP output (Test Anything
+It also allows your bash script to be used with the `prove` command,
+a tool to run test scripts that produce TAP output (Test Anything
 Protocol).
 
 ## SYNOPSIS
