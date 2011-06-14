@@ -477,6 +477,7 @@ autoreport_main() {
     MYPLAN=4
     prepare_plan
     echo "1..$PLAN"
+    echo "TAP Version 13"
 
     # ==================== meta info ====================
     tapper_suite_meta
