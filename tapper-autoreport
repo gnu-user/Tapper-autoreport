@@ -476,8 +476,8 @@ autoreport_main() {
     # count of tests until "END of own tests"
     MYPLAN=4
     prepare_plan
-    echo "1..$PLAN"
     echo "TAP Version 13"
+    echo "1..$PLAN"
 
     # ==================== meta info ====================
     tapper_suite_meta
