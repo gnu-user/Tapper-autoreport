@@ -189,13 +189,13 @@ get_tapdata_counter () {
 }
 
 append_tap () {
-    tap_report="${1:-'not ok - unknown TAP line in utility function append_tap'}"
-    TAP=( "${TAP[@]}" "$1" )
+    tapline="${1:-'not ok - unknown TAP line in utility function append_tap'}"
+    TAP=( "${TAP[@]}" "$tapline" )
 }
 
 append_tapdata () {
-    tap_report="${1:-'not ok - unknown TAP line in utility function append_tapdata'}"
-    TAPDATA=( "${TAPDATA[@]}" "$1" )
+    tapline="${1:-'not ok - unknown TAP line in utility function append_tapdata'}"
+    TAPDATA=( "${TAPDATA[@]}" "$tapline" )
 }
 
 ok () {
