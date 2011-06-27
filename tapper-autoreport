@@ -198,6 +198,12 @@ append_tapdata () {
     TAPDATA=( "${TAPDATA[@]}" "$tapline" )
 }
 
+append_comment () {
+    tapline="# ${1:-''}"
+    TAP=( "${TAP[@]}" "$tapline" )
+    COMMENTCOUNTER=$((COMMENTCOUNTER + 1))
+}
+
 ok () {
     success="${1:-0}"
     msg="${2:-unknown}"
@@ -445,7 +451,7 @@ TAPPER_API_PORT=${TAPPER_API_PORT:-${ARTEMIS_API_PORT:-7358}}
 prepare_plan() {
     # count of our own tests
     COUNT=${#TAP[@]}
-    PLAN=$(($MYPLAN + $COUNT))
+    PLAN=$(($MYPLAN + $COUNT - $COMMENTCOUNTER))
 }
 
 upload_files() {
