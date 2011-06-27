@@ -168,6 +168,16 @@ require_root () {
     fi
 }
 
+first_file () {
+    for i in $(seq 1 $#) ; do
+        file=${!i}
+        if [ -r "$file" ] ; then
+            echo "$file"
+            return
+        fi
+    done
+}
+
 # ==================== TAP utils ====================
 
 get_tap_counter () {
