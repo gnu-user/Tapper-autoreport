@@ -291,6 +291,9 @@ cpuinfo=$(
 )
 # TODO: bogomips from /proc/cpuinfo
 
+BOOTCONFIG="/boot/config-$kernelrelease"
+PROCCONFIG="/proc/config.gz"
+
 ticketurl=${TICKETURL:-""}
 wikiurl=${WIKIURL:-""}
 planningid=${PLANNINGID:-""}
@@ -395,9 +398,6 @@ for i in $(seq 1 $#) ; do
 done
 
 # ===== kernel config files ==================
-
-BOOTCONFIG="/boot/config-$kernelrelease"
-PROCCONFIG="/proc/config.gz"
 
 if [ ! "$NOUPLOAD" ] ; then
     if [ ! "x1" = "x$DONTREPEATMETA" ] ; then
