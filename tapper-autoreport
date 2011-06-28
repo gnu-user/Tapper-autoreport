@@ -168,6 +168,16 @@ require_root () {
     fi
 }
 
+first_file () {
+    for i in $(seq 1 $#) ; do
+        file=${!i}
+        if [ -r "$file" ] ; then
+            echo "$file"
+            return
+        fi
+    done
+}
+
 # ==================== TAP utils ====================
 
 get_tap_counter () {
@@ -179,13 +189,19 @@ get_tapdata_counter () {
 }
 
 append_tap () {
-    tap_report="${1:-'not ok - unknown TAP line in utility function append_tap'}"
-    TAP=( "${TAP[@]}" "$1" )
+    tapline="${1:-'not ok - unknown TAP line in utility function append_tap'}"
+    TAP=( "${TAP[@]}" "$tapline" )
 }
 
 append_tapdata () {
-    tap_report="${1:-'not ok - unknown TAP line in utility function append_tapdata'}"
-    TAPDATA=( "${TAPDATA[@]}" "$1" )
+    tapline="${1:-'not ok - unknown TAP line in utility function append_tapdata'}"
+    TAPDATA=( "${TAPDATA[@]}" "$tapline" )
+}
+
+append_comment () {
+    tapline="# ${1:-''}"
+    TAP=( "${TAP[@]}" "$tapline" )
+    COMMENTCOUNTER=$((COMMENTCOUNTER + 1))
 }
 
 ok () {
@@ -435,7 +451,7 @@ TAPPER_API_PORT=${TAPPER_API_PORT:-${ARTEMIS_API_PORT:-7358}}
 prepare_plan() {
     # count of our own tests
     COUNT=${#TAP[@]}
-    PLAN=$(($MYPLAN + $COUNT))
+    PLAN=$(($MYPLAN + $COUNT - $COMMENTCOUNTER))
 }
 
 upload_files() {
