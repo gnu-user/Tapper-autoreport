@@ -382,6 +382,7 @@ fi
 EXITCODE=0
 OK=1
 FILECOUNT=0
+COMMENTCOUNTER=0
 
 # do not implicitely upload files like kernel config
 NOUPLOAD=0
