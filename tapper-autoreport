@@ -479,6 +479,8 @@ upload_files() {
 
 autoreport_main() {
 
+    COMMENTCOUNTER=${COMMENTCOUNTER:-0}
+
     if [ -n "$SKIPALL" ] ; then
         echo "$SKIPALL"
         tapper_suite_meta
